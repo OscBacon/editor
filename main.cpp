@@ -55,7 +55,7 @@ void print_text() {
       addch(*line_it);
     }
 
-    if (*it != input.back()) {
+    if (it != std::prev(input.end())) {
       addch('\n');
     }
   }
@@ -71,7 +71,7 @@ void do_tui() {
       addch(*line_it);
     }
 
-    if (*it != input.back()) {
+    if (it != std::prev(input.end())) {
       addch('\n');
     }
   }
@@ -85,7 +85,6 @@ void do_tui() {
   // Now place the iterators at the last char of the file
   --it;
   auto line_it = (*it)->end();
-  --line_it; // Gets to last char
   
   std::locale loc;
   wchar_t ch;
@@ -211,12 +210,9 @@ int main(int argc, char **argv) {
   char c;
   int num_lines = 1;
   // TODO: Remove max_y limit
-  while (file.get(c) && num_lines < max_y) {
-    // TODO: Remove max_y limit
+  while (file.get(c) && num_lines < max_y + 1) {
     if (c == '\n') {
       ++num_lines;
-
-      if (num_lines == max_y) break;
 
       input.push_back(unique_ptr<list<char>>(new list<char>));
       ++it;
@@ -224,6 +220,10 @@ int main(int argc, char **argv) {
       (*it)->push_back(c);
     }
   }
+
+  assert((*it)->empty());
+  // Get rid of final newline
+  input.erase(it);
 
   do_tui();
 
