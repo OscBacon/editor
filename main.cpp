@@ -98,7 +98,7 @@ void do_tui() {
       }
     } else if (ch == KEY_RIGHT) {
       // TODO: Don't assume lines don't overflow
-      if (x < (int) (*it)->size() - 1 && x < max_x) {
+      if (x < (int) (*it)->size() && x < max_x) {
         ++x;
         ++line_it;
       }
@@ -111,7 +111,7 @@ void do_tui() {
         } else if (x < (int) (*it)->size()) {
           // x within line size, don't change it
           line_it = (*it)->begin();
-          std::advance(line_it, x - 1);
+          std::advance(line_it, x);
         } else {
           line_it = (*it)->end();
           --line_it;
@@ -131,7 +131,7 @@ void do_tui() {
         } else if (x < (int) (*it)->size()) {
           // x within line size, don't change it
           line_it = (*it)->begin();
-          std::advance(line_it, x - 1);
+          std::advance(line_it, x);
         } else {
           line_it = (*it)->end();
           --line_it;
@@ -157,7 +157,7 @@ void do_tui() {
 
       (*it)->insert(line_it, ch);
       ++x;
-      // auto temp_it = input.begin();
+
       print_text();
     } else {
       // TODO: handle newline
