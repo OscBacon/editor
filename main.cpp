@@ -143,13 +143,36 @@ void do_tui() {
         }
       }
     } else if (ch == KEY_BACKSPACE) {
-      // TODO: handle deleting line
-      if (x == 0) continue;
+      if (x == 0) {
+        // Can't delete before start
+        if (y == 0) continue;
 
-      line_it = (*it)->erase(line_it);
-      // erase returns the next iterator, go to previous instead
-      --line_it;
-      --x;
+        // Merge current line with previous
+        auto previous_it = std::prev(it);
+
+        // Get current # of chars in previous line.
+        // After merging lines, the cursor will be one char right of that
+        x = (*previous_it)->size();
+        auto previous_line_last_char_it = std::prev((*previous_it)->end());
+
+        // Append current line to previous line
+        (*previous_it)->splice((*previous_it)->end(), *(*it));
+
+        // Get rid of current line since it was merged
+        input.erase(it);
+        it = previous_it;
+        --y;
+
+        // Place iterator one char after the previous line's last char
+        line_it = std::next(previous_line_last_char_it);
+      } else {
+        // Erase the previous character
+        --line_it;
+        line_it = (*it)->erase(line_it);
+
+        --x;
+      }
+
       print_text();
     } else if (std::isprint(ch, loc)) {
       // TODO: let lines overflow
