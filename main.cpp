@@ -10,13 +10,13 @@
 
 using namespace std;
 
-list<unique_ptr<list<char>>> input;
+list<list<char>> input;
 WINDOW *win;
 int x, y, max_x, max_y;
 
 void traverse_list(ostream &out = cout) {
   for (auto const &line : input) {
-    for (char c : *line) {
+    for (char c : line) {
       out << c;
     }
     out << endl;
@@ -51,7 +51,7 @@ void print_text() {
 
   auto it = input.begin();
   for (; it != input.end(); ++it) {
-    for (auto line_it = (*it)->begin(); line_it != (*it)->end(); ++line_it) {
+    for (auto line_it = it->begin(); line_it != it->end(); ++line_it) {
       addch(*line_it);
     }
 
@@ -67,7 +67,7 @@ void do_tui() {
   // TODO: merge with print_text
   auto it = input.begin();
   for (; it != input.end(); ++it) {
-    for (auto line_it = (*it)->begin(); line_it != (*it)->end(); ++line_it) {
+    for (auto line_it = it->begin(); line_it != it->end(); ++line_it) {
       addch(*line_it);
     }
 
@@ -84,7 +84,7 @@ void do_tui() {
   
   // Now place the iterators at the last char of the file
   --it;
-  auto line_it = (*it)->end();
+  auto line_it = it->end();
   
   std::locale loc;
   wchar_t ch;
@@ -97,7 +97,7 @@ void do_tui() {
       }
     } else if (ch == KEY_RIGHT) {
       // TODO: Don't assume lines don't overflow
-      if (x < (int) (*it)->size() && x < max_x) {
+      if (x < (int) it->size() && x < max_x) {
         ++x;
         ++line_it;
       }
@@ -106,18 +106,18 @@ void do_tui() {
         --y;
         --it;
         if (x == 0) {
-          line_it = (*it)->begin();
-        } else if (x < (int) (*it)->size()) {
+          line_it = it->begin();
+        } else if (x < (int) it->size()) {
           // x within line size, don't change it
-          line_it = (*it)->begin();
+          line_it = it->begin();
           std::advance(line_it, x);
         } else {
-          line_it = (*it)->end();
+          line_it = it->end();
           --line_it;
-          if ((*it)->empty()) {
+          if (it->empty()) {
             x = 0;
           } else {
-            x = (int) (*it)->size() - 1;
+            x = (int) it->size() - 1;
           }
         }
       }
@@ -126,18 +126,18 @@ void do_tui() {
         ++y;
         ++it;
         if (x == 0) {
-          line_it = (*it)->begin();
-        } else if (x < (int) (*it)->size()) {
+          line_it = it->begin();
+        } else if (x < (int) it->size()) {
           // x within line size, don't change it
-          line_it = (*it)->begin();
+          line_it = it->begin();
           std::advance(line_it, x);
         } else {
-          line_it = (*it)->end();
+          line_it = it->end();
           --line_it;
-          if ((*it)->empty()) {
+          if (it->empty()) {
             x = 0;
           } else {
-            x = (int) (*it)->size() - 1;
+            x = (int) it->size() - 1;
           }
         }
       }
@@ -151,11 +151,11 @@ void do_tui() {
 
         // Get current # of chars in previous line.
         // After merging lines, the cursor will be one char right of that
-        x = (*previous_it)->size();
-        auto previous_line_last_char_it = std::prev((*previous_it)->end());
+        x = previous_it->size();
+        auto previous_line_last_char_it = std::prev(previous_it->end());
 
         // Append current line to previous line
-        (*previous_it)->splice((*previous_it)->end(), *(*it));
+        previous_it->splice(previous_it->end(), *it);
 
         // Get rid of current line since it was merged
         input.erase(it);
@@ -167,7 +167,7 @@ void do_tui() {
       } else {
         // Erase the previous character
         --line_it;
-        line_it = (*it)->erase(line_it);
+        line_it = it->erase(line_it);
 
         --x;
       }
@@ -178,27 +178,27 @@ void do_tui() {
       if (max_x + 1 == (int) input.size()) continue;
 
       auto prev_it = it;
-      auto prev_line_end = (*prev_it)->end();
+      auto prev_line_end = prev_it->end();
 
       // A newline is expected to appear under the current line
       // Insert prepends, so insert from the next line
       ++it;
-      it = input.insert(it, unique_ptr<list<char>>(new list<char>));
+      it = input.insert(it, list<char>());
 
       // Move characters from cursor to the end of the line to the next line
-      (*it)->splice((*it)->begin(), **prev_it,  line_it, prev_line_end);
+      it->splice(it->begin(), *prev_it,  line_it, prev_line_end);
       ++y;
 
       // New line => cursor goes to start of line
       x = 0;
-      line_it = (*it)->begin();
+      line_it = it->begin();
 
       print_text();
     } else if (std::isprint(ch, loc)) {
       // TODO: let lines overflow
-      if ((int) (*it)->size() == max_x) continue;
+      if ((int) it->size() == max_x) continue;
 
-      (*it)->insert(line_it, ch);
+      it->insert(line_it, ch);
       ++x;
 
       print_text();
@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
 
   init_tui();
 
-  input.push_back(unique_ptr<list<char>>(new list<char>));
+  input.push_back(list<char>());
 
   auto it = input.begin();
   char c;
@@ -235,14 +235,14 @@ int main(int argc, char **argv) {
     if (c == '\n') {
       ++num_lines;
 
-      input.push_back(unique_ptr<list<char>>(new list<char>));
+      input.push_back(list<char>());
       ++it;
     } else {
-      (*it)->push_back(c);
+      it->push_back(c);
     }
   }
 
-  assert((*it)->empty());
+  assert(it->empty());
   // Get rid of final newline
   input.erase(it);
 
