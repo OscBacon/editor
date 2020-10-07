@@ -10,6 +10,8 @@
 
 using namespace std;
 
+typedef list<list<char>>::iterator MULTILINE_ITER;
+
 list<list<char>> input;
 WINDOW *win;
 int x, y, max_x, max_y;
@@ -44,15 +46,38 @@ void init_tui() {
   wrefresh(win);
 }
 
-void print_text() {
+void populate_input(fstream &file) {
+  input.push_back(list<char>());
+
+  auto it = input.begin();
+  char c;
+  int num_lines = 1;
+  // TODO: Remove max_y limit
+  while (file.get(c) && num_lines < max_y + 1) {
+    if ('\n' == c) {
+      ++num_lines;
+
+      input.push_back(list<char>());
+      ++it;
+    } else {
+      it->push_back(c);
+    }
+  }
+
+  assert(it->empty());
+  // Get rid of final newline
+  input.erase(it);
+}
+
+MULTILINE_ITER print_text() {
   erase();
   move(0, 0);
   refresh();
 
   auto it = input.begin();
   for (; it != input.end(); ++it) {
-    for (auto line_it = it->begin(); line_it != it->end(); ++line_it) {
-      addch(*line_it);
+    for (char c : *it) {
+      addch(c);
     }
 
     if (it != std::prev(input.end())) {
@@ -61,20 +86,12 @@ void print_text() {
   }
 
   refresh();
+
+  return it;
 }
 
 void do_tui() {
-  // TODO: merge with print_text
-  auto it = input.begin();
-  for (; it != input.end(); ++it) {
-    for (auto line_it = it->begin(); line_it != it->end(); ++line_it) {
-      addch(*line_it);
-    }
-
-    if (it != std::prev(input.end())) {
-      addch('\n');
-    }
-  }
+  auto it = print_text();
 
   // Get cursor pos from the main window
   getyx(stdscr, y, x);
@@ -90,22 +107,22 @@ void do_tui() {
   wchar_t ch;
   while ((ch = getch()) != CTRL_X) {
     // Using if-else's to catch printable characters
-    if (ch == KEY_LEFT) {
+    if (KEY_LEFT == ch) {
       if (x > 0) {
         --x;
         --line_it;
       }
-    } else if (ch == KEY_RIGHT) {
+    } else if (KEY_RIGHT == ch) {
       // TODO: Don't assume lines don't overflow
       if (x < (int) it->size() && x < max_x) {
         ++x;
         ++line_it;
       }
-    } else if (ch == KEY_UP) {
+    } else if (KEY_UP == ch) {
       if (y > 0) {
         --y;
         --it;
-        if (x == 0) {
+        if (0 == x) {
           line_it = it->begin();
         } else if (x < (int) it->size()) {
           // x within line size, don't change it
@@ -121,11 +138,11 @@ void do_tui() {
           }
         }
       }
-    } else if (ch == KEY_DOWN) {
+    } else if (KEY_DOWN == ch) {
       if (y < (int) input.size() - 1 && y < max_y) {
         ++y;
         ++it;
-        if (x == 0) {
+        if (0 == x) {
           line_it = it->begin();
         } else if (x < (int) it->size()) {
           // x within line size, don't change it
@@ -141,10 +158,10 @@ void do_tui() {
           }
         }
       }
-    } else if (ch == KEY_BACKSPACE) {
-      if (x == 0) {
+    } else if (KEY_BACKSPACE == ch) {
+      if (0 == x) {
         // Can't delete before start
-        if (y == 0) continue;
+        if (0 == y) continue;
 
         // Merge current line with previous
         auto previous_it = std::prev(it);
@@ -196,14 +213,13 @@ void do_tui() {
       print_text();
     } else if (std::isprint(ch, loc)) {
       // TODO: let lines overflow
-      if ((int) it->size() == max_x) continue;
+      if (max_x == (int) it->size()) continue;
 
       it->insert(line_it, ch);
       ++x;
 
       print_text();
     } else {
-      // TODO: handle newline
       continue;
     }
 
@@ -220,35 +236,18 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  fstream file;
-  file.open(argv[1]);
 
   init_tui();
 
-  input.push_back(list<char>());
+  fstream file;
+  file.open(argv[1]);
+  populate_input(file);
+  file.close();
 
-  auto it = input.begin();
-  char c;
-  int num_lines = 1;
-  // TODO: Remove max_y limit
-  while (file.get(c) && num_lines < max_y + 1) {
-    if (c == '\n') {
-      ++num_lines;
-
-      input.push_back(list<char>());
-      ++it;
-    } else {
-      it->push_back(c);
-    }
-  }
-
-  assert(it->empty());
-  // Get rid of final newline
-  input.erase(it);
 
   do_tui();
 
-  if (argc == 3) {
+  if (3 == argc) {
     write_output(argv[2]);
   } else {
     traverse_list();
