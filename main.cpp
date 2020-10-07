@@ -173,6 +173,27 @@ void do_tui() {
       }
 
       print_text();
+    } else if ('\n' == ch) {
+      // TODO: Remove temporary limit
+      if (max_x + 1 == (int) input.size()) continue;
+
+      auto prev_it = it;
+      auto prev_line_end = (*prev_it)->end();
+
+      // A newline is expected to appear under the current line
+      // Insert prepends, so insert from the next line
+      ++it;
+      it = input.insert(it, unique_ptr<list<char>>(new list<char>));
+
+      // Move characters from cursor to the end of the line to the next line
+      (*it)->splice((*it)->begin(), **prev_it,  line_it, prev_line_end);
+      ++y;
+
+      // New line => cursor goes to start of line
+      x = 0;
+      line_it = (*it)->begin();
+
+      print_text();
     } else if (std::isprint(ch, loc)) {
       // TODO: let lines overflow
       if ((int) (*it)->size() == max_x) continue;
