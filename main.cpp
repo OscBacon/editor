@@ -16,6 +16,9 @@ list<list<char>> input;
 WINDOW *win;
 int x, y, max_x, max_y;
 
+// The line number of the line displayed at the top of the screen
+int start_line = 0;
+
 void traverse_list(ostream &out = cout) {
   for (auto const &line : input) {
     for (char c : line) {
@@ -39,7 +42,7 @@ void init_tui() {
   raw();
   noecho();
 
-  keypad(stdscr, TRUE); 
+  keypad(stdscr, TRUE);
 
   win = newwin(0, 0, 0, 0);
   getmaxyx(win, max_y, max_x);
@@ -52,8 +55,8 @@ void populate_input(fstream &file) {
   auto it = input.begin();
   char c;
   int num_lines = 1;
-  // TODO: Remove max_y limit
-  while (file.get(c) && num_lines < max_y + 1) {
+
+  while (file.get(c)) {
     if ('\n' == c) {
       ++num_lines;
 
@@ -65,6 +68,7 @@ void populate_input(fstream &file) {
   }
 
   assert(it->empty());
+
   // Get rid of final newline
   input.erase(it);
 }
@@ -75,17 +79,31 @@ MULTILINE_ITER print_text() {
   refresh();
 
   auto it = input.begin();
-  for (; it != input.end(); ++it) {
+  std::advance(it, start_line);
+
+  // Only print lines up to the bottom of the window, or the number of lines
+  // left
+  int num_lines = input.size();
+  int max_lines = min(num_lines - start_line, max_y);
+
+  int curr_num_lines = 0;
+  for (; it != input.end() && curr_num_lines < max_lines; ++it) {
+    ++curr_num_lines;
+
     for (char c : *it) {
       addch(c);
     }
 
-    if (it != std::prev(input.end())) {
-      addch('\n');
-    }
+    if (max_lines == curr_num_lines) break;
+
+    addch('\n');
   }
 
   refresh();
+
+  // For consistency, have print_text return an iterator to the last line
+  if (it == input.end())
+    it = std::prev(it);
 
   return it;
 }
@@ -96,11 +114,7 @@ void do_tui() {
   // Get cursor pos from the main window
   getyx(stdscr, y, x);
 
-  // Assume the cursor is at the last char in the file 
-  assert(input.end() == it);
-  
-  // Now place the iterators at the last char of the file
-  --it;
+  // Now place the line iterator at the last char of the file
   auto line_it = it->end();
   
   std::locale loc;
@@ -119,49 +133,65 @@ void do_tui() {
         ++line_it;
       }
     } else if (KEY_UP == ch) {
-      if (y > 0) {
-        --y;
-        --it;
-        if (0 == x) {
-          line_it = it->begin();
-        } else if (x < (int) it->size()) {
-          // x within line size, don't change it
-          line_it = it->begin();
-          std::advance(line_it, x);
+      // If at top of file, do nothing
+      if (0 == y && 0 == start_line) continue;
+
+      --it;
+      if (0 == x) {
+        line_it = it->begin();
+      } else if (x <= (int) it->size()) {
+        // x within line size, don't change it
+        line_it = it->begin();
+        std::advance(line_it, x);
+      } else {
+        line_it = it->end();
+
+        if (it->empty()) {
+          x = 0;
         } else {
-          line_it = it->end();
-          --line_it;
-          if (it->empty()) {
-            x = 0;
-          } else {
-            x = (int) it->size() - 1;
-          }
+          x = (int) it->size();
         }
       }
+
+      if (0 == y) {
+        // Going past the top of the screen, scroll up
+        --start_line;
+        print_text();
+      } else {
+        --y;
+      }
     } else if (KEY_DOWN == ch) {
-      if (y < (int) input.size() - 1 && y < max_y) {
-        ++y;
-        ++it;
-        if (0 == x) {
-          line_it = it->begin();
-        } else if (x < (int) it->size()) {
-          // x within line size, don't change it
-          line_it = it->begin();
-          std::advance(line_it, x);
+      // Don't scroll past end of file
+      if (y == (int) input.size() - 1) continue;
+
+      ++it;
+      if (0 == x) {
+        line_it = it->begin();
+      } else if (x <= (int) it->size()) {
+        // x within line size, don't change it
+        line_it = it->begin();
+        std::advance(line_it, x);
+      } else {
+        line_it = it->end();
+
+        if (it->empty()) {
+          x = 0;
         } else {
-          line_it = it->end();
-          --line_it;
-          if (it->empty()) {
-            x = 0;
-          } else {
-            x = (int) it->size() - 1;
-          }
+          x = (int) it->size();
         }
+      }
+
+      if (y == max_y - 1) {
+        // Going past the bottom of the screen, scroll down
+        ++start_line;
+        print_text();
+      } else {
+        ++y;
       }
     } else if (KEY_BACKSPACE == ch) {
       if (0 == x) {
         // Can't delete before start
-        if (0 == y) continue;
+        if (0 == start_line) continue;
 
         // Merge current line with previous
         auto previous_it = std::prev(it);
@@ -177,10 +207,16 @@ void do_tui() {
         // Get rid of current line since it was merged
         input.erase(it);
         it = previous_it;
-        --y;
 
         // Place iterator one char after the previous line's last char
         line_it = std::next(previous_line_last_char_it);
+
+        if (0 == y) {
+          // Going past the top of the screen, scroll up
+          --start_line;
+        } else {
+          --y;
+        }
       } else {
         // Erase the previous character
         --line_it;
@@ -191,9 +227,6 @@ void do_tui() {
 
       print_text();
     } else if ('\n' == ch) {
-      // TODO: Remove temporary limit
-      if (max_x + 1 == (int) input.size()) continue;
-
       auto prev_it = it;
       auto prev_line_end = prev_it->end();
 
@@ -204,11 +237,17 @@ void do_tui() {
 
       // Move characters from cursor to the end of the line to the next line
       it->splice(it->begin(), *prev_it,  line_it, prev_line_end);
-      ++y;
 
       // New line => cursor goes to start of line
       x = 0;
       line_it = it->begin();
+
+      if (y == max_y - 1) {
+        // Going past the bottom of the screen, scroll down
+        ++start_line;
+      } else {
+        ++y;
+      }
 
       print_text();
     } else if (std::isprint(ch, loc)) {
