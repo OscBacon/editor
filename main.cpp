@@ -10,8 +10,10 @@
 
 using namespace std;
 
+// An iterator to traverse the input lines
 typedef list<list<char>>::iterator MULTILINE_ITER;
 
+// A list of lines in the input
 list<list<char>> input;
 WINDOW *win;
 int x, y, max_x, max_y;
@@ -37,6 +39,7 @@ void write_output(char *filename) {
   out.close();
 }
 
+// Initializes NCurses and the TUI window, gets the max x and y
 void init_tui() {
   initscr();
   raw();
@@ -49,6 +52,11 @@ void init_tui() {
   wrefresh(win);
 }
 
+/*
+ * Populates input list with a list of chars for each line in the file.
+ * If the file is empty, adds an empty line.
+ *
+ */
 void populate_input(fstream &file) {
   input.push_back(list<char>());
 
@@ -69,8 +77,10 @@ void populate_input(fstream &file) {
 
   assert(it->empty());
 
-  // Get rid of final newline
-  input.erase(it);
+  // Get rid of final newline if the file is not empty
+  if (1 != input.size()) {
+    input.erase(it);
+  }
 }
 
 MULTILINE_ITER print_text() {
