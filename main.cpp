@@ -62,12 +62,8 @@ void populate_input(fstream &file) {
 
   auto it = input.begin();
   char c;
-  int num_lines = 1;
-
   while (file.get(c)) {
     if ('\n' == c) {
-      ++num_lines;
-
       input.push_back(list<char>());
       ++it;
     } else {
