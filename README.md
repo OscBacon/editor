@@ -1,3 +1,3 @@
 # Editor
 
-An attempt at an editor using ncurses and C++
+An attempt at a TUI editor using ncurses and C++
